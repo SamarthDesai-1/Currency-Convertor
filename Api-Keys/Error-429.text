@@ -1,0 +1,130 @@
+Explanation
+
+Okay, let's break down why you're getting the "429 (Too Many Requests)" error from the api.apilayer.com currency conversion API and how to fix it.
+
+Understanding the Error: 429 (Too Many Requests)
+
+The 429 HTTP status code is a direct indicator of rate limiting. It means you've exceeded the allowed number of requests you can make to the API within a specific timeframe. API providers implement rate limiting to:
+
+Prevent Abuse: Stop users (or malicious bots) from overloading their servers with excessive requests.
+Maintain Service Quality: Ensure fair access for all users and prevent a single user from hogging all the resources.
+Manage resources: ensure optimal use of the system.
+Monetization: Some APIs offer a free tier with limits, and paid tiers with higher or no limits.
+Why You're Hitting the Rate Limit
+
+In your React code, you're making the API call directly within the App component's body. This is the root of your problem. Here's why:
+
+React Re-renders: React components re-render frequently. Whenever the state (input or output) changes, or even if a parent component updates, your App component function runs again.
+Fetch on Every Render: Because the fetch call is inside the component function itself (not within an effect hook), the API request is made every single time the component re-renders.
+Rapid-Fire Requests: With each re-render, a new request goes out. If you're typing in the InputText field or the component is re-rendering for other reasons, you're rapidly sending API calls.
+API Limits: The API is a free API which means it will have rate limitations on usage.
+Ratelimit-remaining: The response Headers shows that the ratelimit-remaining is 0.
+retry-after: The response Headers shows that the retry-after is 1539045. This implies that the server wants you to wait for this much time before making a new request.
+How to Fix It (and Best Practices)
+
+Here's how to solve this using React best practices:
+
+useEffect for Side Effects: Use the useEffect hook to contain the API call. useEffect is designed for "side effects," which include things like fetching data, manipulating the DOM, etc.
+Dependency Array: Use the dependency array of useEffect to control when the effect should run. In your case, you only want to fetch data when input changes.
+Debouncing (Optional but Recommended): If you want to update based on the user typing, use a technique called "debouncing." This means you only send the API call after the user has stopped typing for a short period (e.g., 300-500ms). This will dramatically reduce the number of API calls.
+Error handling: Add error handling for handling different error status codes like 429 or 500.
+Caching: use caching mechanisms so that you can store the exchange values locally so that when user wants to see the conversion of CAD to INR again, you dont have to fetch again.
+Corrected Code with Explanations
+
+js
+
+import React, { useState, useEffect, useRef } from 'react';
+
+// Assume you have these components defined elsewhere
+// function InputText({ setInput }) { ... }
+// function Response({ output }) { ... }
+
+function App() {
+  const [input, setInput] = useState(1);
+  const [output, setOutput] = useState(0);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const From = "CAD";
+  const To = "INR";
+
+  // Debouncing logic (if you want to use it)
+  const debounceTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    // Clear any existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Set a new timeout to make the API call after a delay
+    debounceTimeoutRef.current = setTimeout(() => {
+      const fetchData = async () => {
+        setIsLoading(true); // Set loading state
+        setError(null);
+
+        var myHeaders = new Headers();
+        myHeaders.append("apikey", "0uPyOye6XlNR5y2ENHKc0t9qFhQlVvAm"); //replace this with your api key
+
+        var requestOptions = {
+          method: 'GET',
+          redirect: 'follow',
+          headers: myHeaders
+        };
+
+        try {
+          const response = await fetch(
+            `https://api.apilayer.com/currency_data/convert?to=${To}&from=${From}&amount=${input}`,
+            requestOptions
+          );
+          if(!response.ok){
+            if(response.status === 429){
+               setError("Too many request. Please wait and try again later.")
+            }else{
+               setError("An error occurred while processing your request.")
+            }
+          }
+          const data = await response.json();
+          setOutput(data.result);
+        } catch (err) {
+            setError("Network error. Please check your internet connection");
+          console.error("Error fetching data:", err);
+        } finally {
+          setIsLoading(false); // Reset loading state
+        }
+      };
+
+      fetchData();
+    }, 300); // Adjust delay (in milliseconds) as needed
+
+    // Cleanup function to clear timeout if component unmounts or input changes
+    return () => {
+      clearTimeout(debounceTimeoutRef.current);
+    };
+  }, [input]); // Only re-run the effect if 'input' changes
+
+  return (
+    <>
+      <h1>Currency Converter</h1>
+      <InputText setInput={setInput} />
+      {isLoading && <p>Loading...</p>}
+Use code snippets with caution
+
+Key Improvements
+
+useEffect: The API call is now inside useEffect.
+Dependency Array [input]: The effect only runs when the input state changes.
+Debouncing: The setTimeout and clearTimeout pattern handles debouncing.
+loading: adding loading state when fetching data.
+Error: added error handling.
+Cleanup: The return () => { ... } in useEffect is a cleanup function. It clears the timeout if the component unmounts or if input changes before the timeout expires.
+Error handling: handle error response.
+Further Considerations
+
+API Key Security: Storing API keys directly in your frontend code is a security risk. If this were a production app, you should fetch the data via a backend server that securely holds the key.
+Caching: use browser cache to reduce api calls.
+Alternative API: if you encounter issue with current API, you should look for other API.
+User experience: add loading state while fetching data and error handling.
+With these changes, your app will only make API calls when necessary, respecting the API's rate limit. This will prevent the 429 error and make your app more efficient.
+
+Data used to understand this message

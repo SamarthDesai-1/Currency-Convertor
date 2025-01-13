@@ -1,7 +1,14 @@
 import './App.css'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import InputText from '../Components/InputText';
+import Response from '../Components/Response';
 
-async function request(Amount) {
+export default function App() {
+
+  const [input, setInput] = useState(1);
+  const [output, setOutput] = useState(0);
+
+  const inputOne = useRef();
 
   const From = "CAD";
   const To = "INR";
@@ -16,21 +23,18 @@ async function request(Amount) {
   };
 
 
-  fetch(`https://api.apilayer.com/currency_data/convert?to=${To}&from=${From}&amount=${Amount}`, requestOptions)
+  fetch(`https://api.apilayer.com/currency_data/convert?to=${To}&from=${From}&amount=${input}`, requestOptions)
     .then(response => response.json())
-    .then(result => console.log(`From ${From} to ${To} is : ${result.result}`))
-}
+    .then(result => setOutput(result.result))
 
-function App() {
 
-  const inputOne = useRef();
   return (
     <>
-      <input type="text" ref={inputOne} placeholder='Enter covert amount' />
-      <br />
-      <button onClick={() => request(inputOne.current.value)}>Translate</button>
+    
+      <h1>Curreny Convertor</h1>
+      <InputText setInput={setInput}></InputText>
+      <Response output={output}></Response>
+
     </>
   )
 }
-
-export default App;
